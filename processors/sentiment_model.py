@@ -1,7 +1,7 @@
 import spacy
 from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
 import logging
-from entity_patterns import patterns
+from .entity_patterns import patterns
 
 
 class SentimentService:
@@ -9,12 +9,11 @@ class SentimentService:
     Loads models once, keeps them alive, and provides methods
     to analyze single texts or batches quickly.
     """
-    def __init__(self, logger:logging.Logger, model_name="cardiffnlp/twitter-roberta-base-sentiment"):
-        self.logger = logger
+    def __init__(self, model_name="cardiffnlp/twitter-roberta-base-sentiment"):
         # load spacy once
         self.nlp = spacy.load("en_core_web_sm")
         # add custom patterns
-        ruler = self.nlp.add_pipe("entity_ruler", before="ner", config={"overwrite_ents": True})  # note: string name, not object
+        ruler = self.nlp.add_pipe("entity_ruler", before="ner", config={"overwrite_ents": True})  
         ruler.add_patterns(patterns)
 
         # load hf tokenizer + model + pipeline once
@@ -56,7 +55,7 @@ class SentimentService:
         if len(tag_texts) <= 1:
             return [sent.text]
 
-        # if >1 tags → split on coordinating conj linking clauses
+        # if >1 tags - split on coordinating conj linking clauses
         clauses, current = [], []
         for token in sent:
             current.append(token.text)
@@ -69,19 +68,24 @@ class SentimentService:
 
     def analyze_sentiment(self, texts):
         """Batch or single sentiment call."""
+        label_mapping = {
+            "LABEL_0": "NEGATIVE",
+            "LABEL_1": "NEUTRAL",
+            "LABEL_2": "POSITIVE"
+        }
         out = self.sentiment_pipeline(texts if isinstance(texts, list) else [texts])
-        # ensure list & round
-        return [{"label": r["label"], "score": round(r["score"], 3)} for r in out]
+        
+        return [{"label": label_mapping.get(r["label"], r["label"]), "score": round(r["score"], 3)} for r in out]
 
     def process_post(self, post: dict) -> dict:
         """
         post should contain at least:
-          { "post_id", "timestamp", "post_author", "platform", "raw_html" }
+          { "post_id", "timestamp", "post_author", "platform", "body" }
         Returns enriched dict with:
           tags, clauses[ { text, sentiment, clause_tags } ], overall_vibe
         """
         
-        doc = self.nlp(post["raw_html"])
+        doc = self.nlp(post["body"])
 
         # post level tags
         post_tags = self.extract_tags(doc)
@@ -102,7 +106,14 @@ class SentimentService:
                     "sentiment": sent_res,
                     "clause_tags": list(clause_tags)
                 })
-                overall_scores.append(sent_res["score"] * (1 if sent_res["label"]=="LABEL_2" else -1))
+                
+                label = sent_res["label"]
+                multiplier = {
+                    "POSITIVE": 1,
+                    "NEUTRAL": 0,
+                    "NEGATIVE": -1
+                }.get(label.upper(), 0)  # fallback to 0 
+                overall_scores.append(sent_res["score"] * multiplier)
 
         # overall score: average signed score mapped to int [-1,1]
         if overall_scores:
@@ -116,7 +127,7 @@ class SentimentService:
             "timestamp": post["timestamp"],
             "post_author": post["post_author"],
             "platform": post["platform"],
-            "raw_text": post["raw_html"],
+            "raw_text": post["body"],
             "tags": [ {"text": t, "label": l} for t,l in post_tags ],
             "clauses": clauses_info,
             "overall_vibe": post_score
