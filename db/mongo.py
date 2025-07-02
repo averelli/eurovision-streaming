@@ -19,7 +19,3 @@ class MongoDBClient:
 
     def close(self):
         self.client.close()
-
-m = MongoDBClient("testing")
-m.get_collection("testing_col")
-m.insert_post({"test": 1}, "testing_col")
