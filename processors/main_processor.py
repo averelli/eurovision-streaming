@@ -9,14 +9,14 @@ logger.info("Connecting to Kafka")
 consumer_raw = KafkaConsumer(
     settings.KAFKA_RAW_TOPIC,
     bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
-    auto_offset_reset='earliest',
-    group_id='test-group',
+    auto_offset_reset="earliest",
+    group_id="sentiment-group",
     enable_auto_commit=True
 )
 
 producer_processed = KafkaProducer(
     bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+    value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 
 
