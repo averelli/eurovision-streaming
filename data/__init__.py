@@ -1,0 +1,1 @@
+from .metadata import CONTESTANTS, COUNTRIES, SONGS
