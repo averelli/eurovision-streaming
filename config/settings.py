@@ -7,6 +7,7 @@ class Settings:
     KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
     KAFKA_RAW_TOPIC = os.getenv("KAFKA_RAW_TOPIC")
     KAFKA_PROCESSED_TOPIC = os.getenv("KAFKA_PROCESSED_TOPIC")
+    KAFKA_WINDOW_TOPIC = os.getenv("KAFKA_WINDOW_TOPIC")
 
     MONGO_URI = os.getenv("MONGO_URI")
     MONGO_DB = os.getenv("MONGO_DB")
