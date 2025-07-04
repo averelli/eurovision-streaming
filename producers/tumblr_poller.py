@@ -1,17 +1,26 @@
 import requests
 from config import settings, setup_logging
+from datetime import datetime, timezone
 
 
-def clean_post(post:str):
+def clean_post(post: dict):
     post_id = post.get("id")
     author = post.get("blog", {}).get("name")
     timestamp = post.get("timestamp")
     body = post.get("body")
-    
+
+    # Convert timestamp to ISO 
+    iso_timestamp = None
+    if timestamp is not None:
+        try:
+            iso_timestamp = datetime.fromtimestamp(int(timestamp), tz=timezone.utc).isoformat()
+        except Exception:
+            iso_timestamp = str(timestamp)
+
     return {
         "post_id": post_id,
         "post_author": author,
-        "timestamp": timestamp,
+        "timestamp": iso_timestamp,
         "body": body,
         "platform": "Tumblr"
     }
@@ -23,13 +32,15 @@ def poll_tumblr(max_ts:int, logger):
 
     if not posts:
         return max_ts, []
-    
+
     new_posts = [post for post in posts if int(post["timestamp"]) >= max_ts]
     if len(new_posts) >= 1:
         max_ts = max([post["timestamp"] for post in new_posts])
         logger.info(f"Fetched {len(new_posts)} new posts")
-        return max_ts, new_posts
-    else: 
+        # Clean posts after filtering
+        cleaned_posts = [clean_post(post) for post in new_posts]
+        return max_ts, cleaned_posts
+    else:
         logger.info("No new posts")
         return max_ts, []
 
@@ -56,10 +67,7 @@ def fetch_posts(logger):
                     print(post.get("summary"))
                     logger.warning("No post body found")
                     continue
-
-                cleaned_post = clean_post(post)
-                posts.append(cleaned_post)
-
+                posts.append(post)  
             return posts
         else:
             logger.error(f"Error: {response.status_code}. {response.text}")
